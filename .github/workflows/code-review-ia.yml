@@ -8,11 +8,17 @@ name: Code Review IA (reusable)
 #       uses: souagrosolucoes/.github/.github/workflows/code-review-ia.yml@main
 #       secrets: inherit
 #
-# Runs the official anthropics/claude-code-action against the PR that
-# received the label, posting inline review comments and a summary. The
-# action reads each consumer repo's CLAUDE.md (and any nested CLAUDE.md
-# files) automatically, so project-specific conventions stay co-located
-# with each codebase — this workflow is intentionally generic.
+# Runs the official anthropics/claude-code-action with the official
+# `code-review` plugin (Anthropic Verified). The plugin orchestrates
+# multiple specialized agents — CLAUDE.md compliance, bug detection,
+# historical context, PR history, code comments — with confidence-based
+# scoring to filter false positives. It auto-detects the current PR via
+# the GitHub CLI; we only invoke `/code-review` from the prompt.
+#
+# CLAUDE.md (and any nested CLAUDE.md files) of the consumer repo is
+# read automatically by the plugin, so project-specific conventions
+# stay co-located with each codebase — this workflow is intentionally
+# generic.
 
 on:
   workflow_call:
@@ -37,54 +43,27 @@ jobs:
       - name: Checkout PR head
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          # Full history allows the plugin to look at git blame and PR history.
+          fetch-depth: 0
 
-      - name: Run Claude Code Review
+      - name: Run /code-review (Anthropic plugin)
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
+
+          # Anthropic-maintained marketplace + plugin (verified). The plugin
+          # reads each consumer repo's CLAUDE.md automatically.
+          plugin_marketplaces: |
+            https://github.com/anthropics/claude-plugins-public.git
+          plugins: |
+            code-review@claude-plugins-official
+
           claude_args: |
             --model ${{ inputs.model }}
+
           prompt: |
-            Você é um revisor sênior. Faça a revisão do pull request atual
-            seguindo as convenções deste repositório (descritas no `CLAUDE.md`
-            da raiz e nos `CLAUDE.md` por subprojeto, quando existirem).
+            Execute o comando `/code-review` neste pull request.
 
-            Idioma da revisão: pt-BR. Tom direto e profissional.
-
-            ## O que apontar (em ordem de prioridade)
-
-            1. **Bugs reais que vão pra produção**: comportamento incorreto
-               em casos normais ou de borda, regressões, vazamento de dados
-               ou credenciais. Adapte ao stack do repo (banco, frontend,
-               infra, scripts, etc.) conforme o que o diff toca.
-
-            2. **Risco de segurança**: validação ausente em fronteiras de
-               confiança, secrets em plaintext, autenticação/autorização
-               bypassadas, vetores de injeção (SQL, XSS, command, etc.)
-               relevantes ao tipo de código modificado.
-
-            3. **Violações dos padrões documentados** no `CLAUDE.md` deste
-               repo. Não invente regras que não estejam lá.
-
-            ## O que NÃO apontar
-
-            - Formatação, naming, ordem de imports — Prettier/ESLint cobrem.
-            - Ausência de testes se o CI do repo já passou.
-            - Bikeshed (preferências subjetivas sem impacto funcional).
-            - Itens já levantados por outros revisores.
-
-            ## Formato
-
-            - Use **inline review comments** quando o problema for específico
-              de uma ou poucas linhas.
-            - Termine com um **summary** estruturado:
-              - 🔴 **Crítico** (bloqueia merge)
-              - 🟡 **Sugestão** (vale revisar mas não bloqueia)
-              - 🟢 **Pontos positivos** (até 3, opcional)
-            - Se o PR está bom, declare em uma frase no summary e não
-              invente apontamentos.
-
-            Confiamos no julgamento humano. Apontamentos seus são entrada
-            para discussão, não veredicto.
+            O output da revisão deve estar em pt-BR e seguir o
+            `CLAUDE.md` do repositório (raiz e subpastas, quando houver).
