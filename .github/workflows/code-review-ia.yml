@@ -1,6 +1,6 @@
 name: Code Review IA (reusable)
 
-# Reusable workflow consumed by every safracontrol-* repo via:
+# Reusable workflow consumed by every souagrosolucoes/* repo via:
 #
 #   jobs:
 #     review:
@@ -8,10 +8,11 @@ name: Code Review IA (reusable)
 #       uses: souagrosolucoes/.github/.github/workflows/code-review-ia.yml@main
 #       secrets: inherit
 #
-# It runs the official anthropics/claude-code-action against the PR that
+# Runs the official anthropics/claude-code-action against the PR that
 # received the label, posting inline review comments and a summary. The
-# action reads CLAUDE.md from the consumer repo automatically, so guidelines
-# stay co-located with each codebase.
+# action reads each consumer repo's CLAUDE.md (and any nested CLAUDE.md
+# files) automatically, so project-specific conventions stay co-located
+# with each codebase — this workflow is intentionally generic.
 
 on:
   workflow_call:
@@ -36,7 +37,6 @@ jobs:
       - name: Checkout PR head
         uses: actions/checkout@v4
         with:
-          # The full history is not needed; depth 1 is enough for the diff.
           fetch-depth: 1
 
       - name: Run Claude Code Review
@@ -47,51 +47,43 @@ jobs:
           claude_args: |
             --model ${{ inputs.model }}
           prompt: |
-            Você é um revisor sênior do código deste repositório. Faça a revisão
-            do pull request atual seguindo as convenções descritas em CLAUDE.md
-            (raiz do repo) e nos demais arquivos `CLAUDE.md` por subprojeto, se
-            existirem.
+            Você é um revisor sênior. Faça a revisão do pull request atual
+            seguindo as convenções deste repositório (descritas no `CLAUDE.md`
+            da raiz e nos `CLAUDE.md` por subprojeto, quando existirem).
 
             Idioma da revisão: pt-BR. Tom direto e profissional.
 
             ## O que apontar (em ordem de prioridade)
 
-            1. **Bugs reais** que vão para produção:
-               race conditions, NullPointer/undefined, queries N+1, locks
-               indevidos, vazamento de credenciais, vazamento de dados entre
-               tenants, regressões de comportamento sem teste.
+            1. **Bugs reais que vão pra produção**: race conditions,
+               null/undefined errors, queries com problemas (N+1, lock
+               indevido, índice ausente), regressões de comportamento,
+               vazamento de dados/credenciais.
 
-            2. **Violações dos padrões deste repo** documentados em CLAUDE.md.
-               Exemplos típicos no `safracontrol-api`:
-               - Mistura V1 (Hasura `_eq`) e V2 (NestJS-Query `eq`).
-               - Uso de `console.log` em vez de `PinoLogger` injetado.
-               - `repository.manager.transaction()` em vez de `runTransaction`.
-               - Missing `@Authorize(<EntityAuthorizer>)` em DTOs novos.
-               - Query V2 sem `context: { apiVersion: 'v2' }`.
-               - `synchronize: true` no TypeORM.
-               - Falta de filtro multi-tenant em queries diretas.
+            2. **Risco de segurança**: SQL injection, XSS, secrets em
+               plaintext, autenticação/autorização bypassada, CORS aberto
+               em produção.
 
-            3. **Risco de segurança ou multi-tenant**:
-               SQL injection, vazamento de dados entre tenants, secrets em
-               plaintext, escapes de RBAC, CORS aberto em produção.
+            3. **Violações dos padrões documentados** no `CLAUDE.md` deste
+               repo. Não invente regras que não estejam lá.
 
             ## O que NÃO apontar
 
             - Formatação, naming, ordem de imports — Prettier/ESLint cobrem.
-            - Ausência de testes se o `pr-check.yml` já passou.
+            - Ausência de testes se o CI do repo já passou.
             - Bikeshed (preferências subjetivas sem impacto funcional).
-            - Itens já levantados por outros revisores no PR.
+            - Itens já levantados por outros revisores.
 
             ## Formato
 
-            - Use **inline review comments** (uma observação por linha)
-              quando o problema for específico de uma linha.
-            - No fim, deixe um **summary** estruturado com:
-              - 🔴 Crítico (bloqueia merge)
-              - 🟡 Sugestão (vale revisar mas não bloqueia)
-              - 🟢 Pontos positivos (1-3 itens, opcional)
-            - Se o PR estiver bom, declare isso em uma frase no summary e
-              não invente apontamentos.
+            - Use **inline review comments** quando o problema for específico
+              de uma ou poucas linhas.
+            - Termine com um **summary** estruturado:
+              - 🔴 **Crítico** (bloqueia merge)
+              - 🟡 **Sugestão** (vale revisar mas não bloqueia)
+              - 🟢 **Pontos positivos** (até 3, opcional)
+            - Se o PR está bom, declare em uma frase no summary e não
+              invente apontamentos.
 
-            Lembrete: confiamos no julgamento humano. Apontamentos seus são
-            entrada para discussão, não veredicto.
+            Confiamos no julgamento humano. Apontamentos seus são entrada
+            para discussão, não veredicto.
