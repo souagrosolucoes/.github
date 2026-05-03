@@ -50,6 +50,10 @@ jobs:
       - name: Run /code-review (Anthropic plugin)
         uses: anthropics/claude-code-action@v1
         with:
+          # TEMPORARY: surface plugin output in workflow logs while we
+          # validate the end-to-end flow. Roll back once reviews are
+          # consistently posting on PRs.
+          show_full_output: "true"
           # Authenticate via Pro/Max subscription OAuth token (input dedicated
           # to OAuth — distinct from anthropic_api_key). Draws from the
           # subscription quota instead of API tier limits, which avoids the
