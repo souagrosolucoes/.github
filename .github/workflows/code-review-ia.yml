@@ -55,14 +55,15 @@ jobs:
 
             ## O que apontar (em ordem de prioridade)
 
-            1. **Bugs reais que vão pra produção**: race conditions,
-               null/undefined errors, queries com problemas (N+1, lock
-               indevido, índice ausente), regressões de comportamento,
-               vazamento de dados/credenciais.
+            1. **Bugs reais que vão pra produção**: comportamento incorreto
+               em casos normais ou de borda, regressões, vazamento de dados
+               ou credenciais. Adapte ao stack do repo (banco, frontend,
+               infra, scripts, etc.) conforme o que o diff toca.
 
-            2. **Risco de segurança**: SQL injection, XSS, secrets em
-               plaintext, autenticação/autorização bypassada, CORS aberto
-               em produção.
+            2. **Risco de segurança**: validação ausente em fronteiras de
+               confiança, secrets em plaintext, autenticação/autorização
+               bypassadas, vetores de injeção (SQL, XSS, command, etc.)
+               relevantes ao tipo de código modificado.
 
             3. **Violações dos padrões documentados** no `CLAUDE.md` deste
                repo. Não invente regras que não estejam lá.
