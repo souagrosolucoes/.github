@@ -63,7 +63,14 @@ jobs:
             --model ${{ inputs.model }}
 
           prompt: |
-            Execute o comando `/code-review` neste pull request.
+            Execute `/code-review` neste pull request.
 
-            O output da revisão deve estar em pt-BR e seguir o
-            `CLAUDE.md` do repositório (raiz e subpastas, quando houver).
+            Contexto crítico que o plugin não infere sozinho e merece
+            atenção durante a revisão:
+
+            - **Multi-tenant**: estes repositórios servem múltiplos
+              clientes isolados. Apontar com prioridade qualquer query
+              direta, lógica de cache ou estado compartilhado que possa
+              vazar dados entre tenants.
+
+            Output em pt-BR.
