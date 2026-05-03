@@ -29,7 +29,8 @@ on:
         required: false
         default: "claude-sonnet-4-6"
     secrets:
-      ANTHROPIC_API_KEY:
+      CLAUDE_CODE_OAUTH_TOKEN:
+        description: "OAuth token from `claude setup-token` (Pro/Max subscription). Used as anthropic_api_key by the action — same input accepts both API keys and OAuth tokens."
         required: true
 
 jobs:
@@ -49,7 +50,12 @@ jobs:
       - name: Run /code-review (Anthropic plugin)
         uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Authenticate via Pro/Max subscription OAuth token. The action's
+          # `anthropic_api_key` input accepts both API keys and OAuth tokens
+          # interchangeably; we pass the OAuth one because it draws from the
+          # subscription quota (no API tier limits) and is currently the
+          # cheapest path for our review volume.
+          anthropic_api_key: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
           # Anthropic-maintained marketplace + plugin (verified). The plugin
