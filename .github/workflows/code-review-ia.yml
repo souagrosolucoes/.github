@@ -106,12 +106,43 @@ jobs:
             open PR", esse comportamento causa skip indevido em repositórios
             com múltiplos PRs abertos.
 
-            Contexto crítico que o plugin não infere sozinho e merece
-            atenção durante a revisão:
+            Contexto crítico org-wide:
+            - **Multi-tenant**: estes repositórios servem múltiplos clientes
+              isolados. Trate como prioridade qualquer query direta, lógica de
+              cache ou estado compartilhado que possa vazar dados entre tenants.
 
-            - **Multi-tenant**: estes repositórios servem múltiplos
-              clientes isolados. Apontar com prioridade qualquer query
-              direta, lógica de cache ou estado compartilhado que possa
-              vazar dados entre tenants.
+            ### Comportamento obrigatório
 
-            Output em pt-BR.
+            Após `/code-review` terminar — **independentemente** do resultado
+            dele (mesmo que filtre todos os issues por confidence < 80, mesmo
+            que silencie por elegibilidade) — você **DEVE** postar exatamente
+            UM comentário no PR via
+            `gh pr comment ${{ github.event.pull_request.number }} --body-file <arquivo>`
+            seguindo **exatamente** este formato (em pt-BR, sem emojis):
+
+            ```markdown
+            ### Code Review IA
+
+            **Resumo das mudanças**
+            <1-2 frases descrevendo o que o PR faz, com base no diff>
+
+            **Análise de impacto**
+            - Componentes/módulos afetados: <lista breve>
+            - Possíveis quebras de contrato (API, GraphQL schema, eventos AMQP, env vars): <lista ou "Nenhuma identificada">
+            - Tenants/clientes potencialmente impactados: <"Todos" / "Apenas tenant X" / "Nenhum (mudança transversal)">
+            - Riscos de produção (migration, rollback, scale horizontal, downtime): <breve>
+
+            **Apontamentos do /code-review**
+            <Lista do plugin com confidence >=80, OU "Nenhum apontamento com confiança suficiente foi encontrado pelo plugin." se filtrou tudo, OU "PR considerado inelegível para revisão automática (motivo: <motivo>)." se silenciou na elegibilidade>
+
+            **Multi-tenant check**
+            <Queries diretas, lógica de cache, ou estado compartilhado que possa vazar entre tenants — ou "OK, mudanças não tocam camadas multi-tenant críticas." se não aplicável>
+
+            ---
+            🤖 Revisão automatizada (Claude). Apontamentos são entrada para discussão, não veredicto.
+            ```
+
+            Diretrizes:
+            - Se o `/code-review` postou seu próprio comentário, ainda assim poste o seu nesse formato (são complementares).
+            - Para o link de cada apontamento, use sha completo do commit (ver instruções do `/code-review` sobre formato de link).
+            - Não use ``run-id``/timestamps — só conteúdo do PR.
