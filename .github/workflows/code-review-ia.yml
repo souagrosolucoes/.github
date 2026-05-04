@@ -69,6 +69,37 @@ jobs:
           plugins: |
             code-review@claude-plugins-official
 
+          # Allowlist for tools the plugin actually needs:
+          #   - Skill   : invoke the code-review plugin's skills (without this,
+          #               `code-review:code-review` is denied and the run
+          #               silently produces no comments).
+          #   - Read/Grep/Glob : explore source files referenced by the diff.
+          #   - Bash    : narrow git/gh/find/grep helpers used by the plugin
+          #               agents (history, blame, related files).
+          settings: |
+            {
+              "permissions": {
+                "allow": [
+                  "Skill",
+                  "Read",
+                  "Grep",
+                  "Glob",
+                  "Bash(git:*)",
+                  "Bash(gh:*)",
+                  "Bash(find:*)",
+                  "Bash(grep:*)",
+                  "Bash(rg:*)",
+                  "Bash(cat:*)",
+                  "Bash(ls:*)",
+                  "Bash(head:*)",
+                  "Bash(tail:*)",
+                  "Bash(wc:*)",
+                  "Bash(awk:*)",
+                  "Bash(sed:*)"
+                ]
+              }
+            }
+
           claude_args: |
             --model ${{ inputs.model }}
 
