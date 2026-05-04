@@ -117,11 +117,33 @@ jobs:
             dele (mesmo que filtre todos os issues por confidence < 80, mesmo
             que silencie por elegibilidade) — você **DEVE** postar exatamente
             UM comentário no PR via
-            `gh pr comment ${{ github.event.pull_request.number }} --body-file <arquivo>`
-            seguindo **exatamente** este formato (em pt-BR, sem emojis):
+            `gh pr comment ${{ github.event.pull_request.number }} --body-file <arquivo>`.
+
+            #### Classificação de criticidade (obrigatória no título)
+
+            Antes de escrever o comentário, classifique o PR em UM dos níveis
+            abaixo. O nível vai no **título** do comentário, com emoji + label.
+            Use estes critérios objetivos:
+
+            - 🔴 **Crítico** — quando o plugin encontra 1+ apontamento com
+              confidence >=80, OU a análise de impacto identifica risco alto
+              de produção (migration destrutiva, breaking change não
+              comunicada, vazamento de credencial, regressão evidente). Sugere
+              **não mergear sem mitigação**.
+            - 🟡 **Atenção** — quando há pontos relevantes a revisar com
+              cuidado (mudança de contrato, escopo amplo, risco médio de
+              produção), mesmo sem apontamento crítico do plugin. Sugere
+              **review humano caprichado**.
+            - 🟢 **OK** — análise de impacto baixa + plugin sem apontamentos
+              relevantes. Sugere **prosseguir com merge normal**.
+            - ⚪ **Informativo** — PR trivial (docs, comentários, formatação,
+              version bump). Apenas registro de que IA passou.
+
+            #### Formato do comentário (em pt-BR, sem outros emojis além do
+            de criticidade)
 
             ```markdown
-            ### Code Review IA
+            ### Code Review IA — <EMOJI_CRITICIDADE> <Label>
 
             **Resumo das mudanças**
             <1-2 frases descrevendo o que o PR faz, com base no diff>
@@ -136,10 +158,11 @@ jobs:
             <Lista do plugin com confidence >=80, OU "Nenhum apontamento com confiança suficiente foi encontrado pelo plugin." se filtrou tudo, OU "PR considerado inelegível para revisão automática (motivo: <motivo>)." se silenciou na elegibilidade>
 
             ---
-            🤖 Revisão automatizada (Claude). Apontamentos são entrada para discussão, não veredicto.
+            Revisão automatizada (Claude). Classificação é heurística;
+            apontamentos são entrada para discussão, não veredicto.
             ```
 
             Diretrizes:
             - Se o `/code-review` postou seu próprio comentário, ainda assim poste o seu nesse formato (são complementares).
             - Para o link de cada apontamento, use sha completo do commit (ver instruções do `/code-review` sobre formato de link).
-            - Não use ``run-id``/timestamps — só conteúdo do PR.
+            - Não use `run-id`/timestamps — só conteúdo do PR.
