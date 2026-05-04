@@ -106,10 +106,10 @@ jobs:
             open PR", esse comportamento causa skip indevido em repositórios
             com múltiplos PRs abertos.
 
-            Contexto crítico org-wide:
-            - **Multi-tenant**: estes repositórios servem múltiplos clientes
-              isolados. Trate como prioridade qualquer query direta, lógica de
-              cache ou estado compartilhado que possa vazar dados entre tenants.
+            Considere o `CLAUDE.md` do repositório (raiz e subpastas, quando
+            houver) como fonte de convenções e contextos específicos do
+            projeto — é a partir dele que você deve inferir riscos relevantes
+            (segurança, multi-tenant, contratos com integrações, etc.).
 
             ### Comportamento obrigatório
 
@@ -128,15 +128,12 @@ jobs:
 
             **Análise de impacto**
             - Componentes/módulos afetados: <lista breve>
-            - Possíveis quebras de contrato (API, GraphQL schema, eventos AMQP, env vars): <lista ou "Nenhuma identificada">
-            - Tenants/clientes potencialmente impactados: <"Todos" / "Apenas tenant X" / "Nenhum (mudança transversal)">
-            - Riscos de produção (migration, rollback, scale horizontal, downtime): <breve>
+            - Possíveis quebras de contrato (API, schema, eventos, env vars, etc.): <lista ou "Nenhuma identificada">
+            - Riscos de produção (migration, rollback, escala horizontal, downtime, dependências externas): <breve>
+            - Outros riscos relevantes ao contexto do repo (extraídos do CLAUDE.md, quando aplicável): <breve ou "Nenhum">
 
             **Apontamentos do /code-review**
             <Lista do plugin com confidence >=80, OU "Nenhum apontamento com confiança suficiente foi encontrado pelo plugin." se filtrou tudo, OU "PR considerado inelegível para revisão automática (motivo: <motivo>)." se silenciou na elegibilidade>
-
-            **Multi-tenant check**
-            <Queries diretas, lógica de cache, ou estado compartilhado que possa vazar entre tenants — ou "OK, mudanças não tocam camadas multi-tenant críticas." se não aplicável>
 
             ---
             🤖 Revisão automatizada (Claude). Apontamentos são entrada para discussão, não veredicto.
