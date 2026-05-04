@@ -99,7 +99,12 @@ jobs:
             --model ${{ inputs.model }}
 
           prompt: |
-            Execute `/code-review` neste pull request.
+            Execute `/code-review` no pull request **#${{ github.event.pull_request.number }}**
+            (especificamente este PR, não outros PRs abertos no repo).
+            Use `gh pr view ${{ github.event.pull_request.number }}` em qualquer
+            sub-agente de elegibilidade — não use `gh pr list` ou "most recent
+            open PR", esse comportamento causa skip indevido em repositórios
+            com múltiplos PRs abertos.
 
             Contexto crítico que o plugin não infere sozinho e merece
             atenção durante a revisão:
