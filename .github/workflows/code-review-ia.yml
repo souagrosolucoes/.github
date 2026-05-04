@@ -69,13 +69,19 @@ jobs:
           plugins: |
             code-review@claude-plugins-official
 
-          # Allowlist for tools the plugin actually needs:
-          #   - Skill   : invoke the code-review plugin's skills (without this,
-          #               `code-review:code-review` is denied and the run
-          #               silently produces no comments).
-          #   - Read/Grep/Glob : explore source files referenced by the diff.
-          #   - Bash    : narrow git/gh/find/grep helpers used by the plugin
-          #               agents (history, blame, related files).
+          # Allowlist for tools the plugin actually needs.
+          #
+          # `Bash` is broad on purpose: the code-review plugin's investigation
+          # agents rely on compound shell (pipes, `&&`, `$(...)`, `for`,
+          # `xargs`, `find -exec`) that prefix-matched allowlists like
+          # `Bash(git:*)` would deny. The job runs in an ephemeral GitHub
+          # Actions runner with only the GITHUB_TOKEN granted by `permissions`
+          # at the top of this workflow (contents:read, pull-requests:write,
+          # issues:write), so the blast radius of a broad Bash allowance is
+          # bounded by what that token can do — not by anything persistent.
+          #
+          # Edit/Write/MultiEdit and similar mutating tools are NOT listed,
+          # so the action cannot push commits or modify the repo.
           settings: |
             {
               "permissions": {
@@ -84,18 +90,7 @@ jobs:
                   "Read",
                   "Grep",
                   "Glob",
-                  "Bash(git:*)",
-                  "Bash(gh:*)",
-                  "Bash(find:*)",
-                  "Bash(grep:*)",
-                  "Bash(rg:*)",
-                  "Bash(cat:*)",
-                  "Bash(ls:*)",
-                  "Bash(head:*)",
-                  "Bash(tail:*)",
-                  "Bash(wc:*)",
-                  "Bash(awk:*)",
-                  "Bash(sed:*)"
+                  "Bash"
                 ]
               }
             }
