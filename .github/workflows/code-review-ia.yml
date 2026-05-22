@@ -8,15 +8,15 @@ name: Code Review IA (reusable)
 #       uses: souagrosolucoes/.github/.github/workflows/code-review-ia.yml@main
 #       secrets: inherit
 #
-# Runs the official anthropics/claude-code-action with the official
-# `code-review` plugin (Anthropic Verified). The plugin orchestrates
-# multiple specialized agents — CLAUDE.md compliance, bug detection,
-# historical context, PR history, code comments — with confidence-based
-# scoring to filter false positives. It auto-detects the current PR via
-# the GitHub CLI; we only invoke `/code-review` from the prompt.
+# Runs the official anthropics/claude-code-action with the
+# `superpowers` plugin (Anthropic Verified). The plugin exposes a
+# library of skills; for PR review we invoke
+# `superpowers:requesting-code-review`, which inspects the diff with
+# technical rigor and posts verifiable findings instead of performative
+# agreement. It auto-detects the current PR via the GitHub CLI.
 #
 # CLAUDE.md (and any nested CLAUDE.md files) of the consumer repo is
-# read automatically by the plugin, so project-specific conventions
+# read automatically by the skill, so project-specific conventions
 # stay co-located with each codebase — this workflow is intentionally
 # generic.
 
@@ -47,33 +47,32 @@ jobs:
           # Full history allows the plugin to look at git blame and PR history.
           fetch-depth: 0
 
-      - name: Run /code-review (Anthropic plugin)
+      - name: Run code review (superpowers skill)
         uses: anthropics/claude-code-action@v1
         with:
-          # TEMPORARY: surface plugin output in workflow logs while we
+          # TEMPORARY: surface skill output in workflow logs while we
           # validate the end-to-end flow. Roll back once reviews are
           # consistently posting on PRs.
           show_full_output: "true"
           # Authenticate via Pro/Max subscription OAuth token (input dedicated
           # to OAuth — distinct from anthropic_api_key). Draws from the
-          # subscription quota instead of API tier limits, which avoids the
-          # 30k input tokens/min cap on Tier 1 that the multi-agent
-          # code-review plugin was hitting.
+          # subscription quota instead of API tier limits, avoiding the
+          # input tokens/min cap on lower API tiers.
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
           # Anthropic-maintained marketplace + plugin (verified). The plugin
           # reads each consumer repo's CLAUDE.md automatically.
           plugin_marketplaces: |
-            https://github.com/anthropics/claude-plugins-public.git
+            https://github.com/anthropics/claude-plugins-official.git
           plugins: |
-            code-review@claude-plugins-official
+            superpowers@claude-plugins-official
 
-          # Allowlist for tools the plugin actually needs.
+          # Allowlist for tools the skill actually needs.
           #
-          # `Bash` is broad on purpose: the code-review plugin's investigation
-          # agents rely on compound shell (pipes, `&&`, `$(...)`, `for`,
-          # `xargs`, `find -exec`) that prefix-matched allowlists like
+          # `Bash` is broad on purpose: the requesting-code-review skill's
+          # investigation steps rely on compound shell (pipes, `&&`, `$(...)`,
+          # `for`, `xargs`, `find -exec`) that prefix-matched allowlists like
           # `Bash(git:*)` would deny. The job runs in an ephemeral GitHub
           # Actions runner with only the GITHUB_TOKEN granted by `permissions`
           # at the top of this workflow (contents:read, pull-requests:write,
@@ -99,12 +98,14 @@ jobs:
             --model ${{ inputs.model }}
 
           prompt: |
-            Execute `/code-review` no pull request **#${{ github.event.pull_request.number }}**
-            (especificamente este PR, não outros PRs abertos no repo).
-            Use `gh pr view ${{ github.event.pull_request.number }}` em qualquer
-            sub-agente de elegibilidade — não use `gh pr list` ou "most recent
-            open PR", esse comportamento causa skip indevido em repositórios
-            com múltiplos PRs abertos.
+            Faça a revisão do pull request **#${{ github.event.pull_request.number }}**
+            (especificamente este PR, não outros PRs abertos no repo)
+            usando a skill `superpowers:requesting-code-review` via tool `Skill`.
+            Use `gh pr view ${{ github.event.pull_request.number }}` e
+            `gh pr diff ${{ github.event.pull_request.number }}` para obter
+            metadados e diff — não use `gh pr list` ou "most recent open PR",
+            esse comportamento causa skip indevido em repositórios com múltiplos
+            PRs abertos.
 
             Considere o `CLAUDE.md` do repositório (raiz e subpastas, quando
             houver) como fonte de convenções e contextos específicos do
@@ -113,56 +114,81 @@ jobs:
 
             ### Comportamento obrigatório
 
-            Após `/code-review` terminar — **independentemente** do resultado
-            dele (mesmo que filtre todos os issues por confidence < 80, mesmo
-            que silencie por elegibilidade) — você **DEVE** postar exatamente
-            UM comentário no PR via
-            `gh pr comment ${{ github.event.pull_request.number }} --body-file <arquivo>`.
+            Após a skill terminar — **independentemente** do resultado dela
+            (mesmo que não encontre apontamentos relevantes, mesmo que
+            considere o PR inelegível) — você **DEVE** fazer DOIS passos:
 
-            #### Classificação de criticidade (obrigatória no título)
+            1. Aplicar UMA das labels de risco no PR (e remover labels
+               `risk:*` antigas, se existirem, para evitar acúmulo entre
+               execuções).
+            2. Postar exatamente UM comentário no PR.
+
+            #### Classificação de criticidade
 
             Antes de escrever o comentário, classifique o PR em UM dos níveis
-            abaixo. O nível vai no **título** do comentário, com emoji + label.
-            Use estes critérios objetivos:
+            abaixo. O nível define a label aplicada **e** o emoji do título do
+            comentário. Use estes critérios objetivos:
 
-            - 🔴 **Crítico** — quando o plugin encontra 1+ apontamento com
-              confidence >=80, OU a análise de impacto identifica risco alto
-              de produção (migration destrutiva, breaking change não
-              comunicada, vazamento de credencial, regressão evidente). Sugere
-              **não mergear sem mitigação**.
-            - 🟡 **Atenção** — quando há pontos relevantes a revisar com
-              cuidado (mudança de contrato, escopo amplo, risco médio de
-              produção), mesmo sem apontamento crítico do plugin. Sugere
-              **review humano caprichado**.
-            - 🟢 **OK** — análise de impacto baixa + plugin sem apontamentos
-              relevantes. Sugere **prosseguir com merge normal**.
-            - ⚪ **Informativo** — PR trivial (docs, comentários, formatação,
-              version bump). Apenas registro de que IA passou.
+            - 🔴 **Crítico** (label `risk:critical`) — quando a skill encontra
+              1+ apontamento de alta confiança, OU a análise de impacto
+              identifica risco alto de produção (migration destrutiva,
+              breaking change não comunicada, vazamento de credencial,
+              regressão evidente). Sugere **não mergear sem mitigação**.
+            - 🟡 **Atenção** (label `risk:attention`) — quando há pontos
+              relevantes a revisar com cuidado (mudança de contrato, escopo
+              amplo, risco médio de produção), mesmo sem apontamento crítico
+              da skill. Sugere **review humano caprichado**.
+            - 🟢 **OK** (label `risk:ok`) — análise de impacto baixa + skill
+              sem apontamentos relevantes. Sugere **prosseguir com merge
+              normal**.
+            - ⚪ **Informativo** (label `risk:trivial`) — PR trivial (docs,
+              comentários, formatação, version bump). Apenas registro de que
+              IA passou.
+
+            #### Como aplicar a label
+
+            Antes de criar a label, garanta que ela existe no repo (idempotente):
+
+            ```bash
+            gh label create risk:critical  --color B60205 --description "Code Review IA: risco crítico"     --force 2>/dev/null || true
+            gh label create risk:attention --color FBCA04 --description "Code Review IA: atenção"          --force 2>/dev/null || true
+            gh label create risk:ok        --color 0E8A16 --description "Code Review IA: ok"               --force 2>/dev/null || true
+            gh label create risk:trivial   --color C5DEF5 --description "Code Review IA: informativo"      --force 2>/dev/null || true
+            ```
+
+            Em seguida, remova labels `risk:*` antigas do PR e adicione a
+            label do nível classificado:
+
+            ```bash
+            PR=${{ github.event.pull_request.number }}
+            for L in risk:critical risk:attention risk:ok risk:trivial; do
+              gh pr edit "$PR" --remove-label "$L" 2>/dev/null || true
+            done
+            gh pr edit "$PR" --add-label "<LABEL_DO_NIVEL>"
+            ```
+
+            Substitua `<LABEL_DO_NIVEL>` por exatamente uma de
+            `risk:critical`, `risk:attention`, `risk:ok` ou `risk:trivial`,
+            conforme a classificação definida acima.
 
             #### Formato do comentário (em pt-BR, sem outros emojis além do
             de criticidade)
 
+            O comentário é enxuto — a label já carrega o nível de risco.
+
             ```markdown
             ### Code Review IA — <EMOJI_CRITICIDADE> <Label>
 
-            **Resumo das mudanças**
-            <1-2 frases descrevendo o que o PR faz, com base no diff>
+            **Resumo:** <1-2 frases descrevendo o que o PR faz, com base no diff>
 
-            **Análise de impacto**
-            - Componentes/módulos afetados: <lista breve>
-            - Possíveis quebras de contrato (API, schema, eventos, env vars, etc.): <lista ou "Nenhuma identificada">
-            - Riscos de produção (migration, rollback, escala horizontal, downtime, dependências externas): <breve>
-            - Outros riscos relevantes ao contexto do repo (extraídos do CLAUDE.md, quando aplicável): <breve ou "Nenhum">
-
-            **Apontamentos do /code-review**
-            <Lista do plugin com confidence >=80, OU "Nenhum apontamento com confiança suficiente foi encontrado pelo plugin." se filtrou tudo, OU "PR considerado inelegível para revisão automática (motivo: <motivo>)." se silenciou na elegibilidade>
+            **Apontamentos:**
+            <Lista dos apontamentos relevantes encontrados pela skill, OU "Nenhum apontamento relevante foi encontrado." se vazio, OU "PR considerado inelegível para revisão automática (motivo: <motivo>)." se aplicável>
 
             ---
-            Revisão automatizada (Claude). Classificação é heurística;
-            apontamentos são entrada para discussão, não veredicto.
+            Revisão automatizada. Classificação heurística — entrada para discussão.
             ```
 
             Diretrizes:
-            - Se o `/code-review` postou seu próprio comentário, ainda assim poste o seu nesse formato (são complementares).
-            - Para o link de cada apontamento, use sha completo do commit (ver instruções do `/code-review` sobre formato de link).
+            - Se a skill postou seu próprio comentário, ainda assim poste o seu nesse formato (são complementares).
+            - Para o link de cada apontamento, use sha completo do commit no formato `https://github.com/<owner>/<repo>/blob/<sha>/<path>#L<line>`.
             - Não use `run-id`/timestamps — só conteúdo do PR.
