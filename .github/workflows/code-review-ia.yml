@@ -121,7 +121,18 @@ jobs:
             1. Aplicar UMA das labels de risco no PR (e remover labels
                `risk:*` antigas, se existirem, para evitar acúmulo entre
                execuções).
-            2. Postar exatamente UM comentário no PR.
+            2. Para CADA apontamento encontrado pela skill, postar um
+               **comentário inline de review** ancorado no arquivo/linha
+               relevante, incluindo um bloco ` ```suggestion ` quando o fix
+               for mecânico (rename, parâmetro, sintaxe, redact, remoção
+               de log, etc.). Quando o apontamento for refactor amplo,
+               decisão de design ou risco arquitetural, poste só a
+               explicação — não force uma `suggestion` ruim.
+            3. Postar UM comentário consolidado APENAS quando não houver
+               apontamentos inline (skill não achou nada relevante OU PR
+               considerado inelegível). Quando já houver inline comments,
+               não poste o consolidado — a label e os inline comments já
+               cobrem o status.
 
             #### Classificação de criticidade
 
@@ -171,24 +182,75 @@ jobs:
             `risk:critical`, `risk:attention`, `risk:ok` ou `risk:trivial`,
             conforme a classificação definida acima.
 
-            #### Formato do comentário (em pt-BR, sem outros emojis além do
-            de criticidade)
+            #### Como postar comentários inline por apontamento
 
-            O comentário é enxuto — a label já carrega o nível de risco.
+            Para cada apontamento com arquivo/linha identificáveis, use a
+            API REST do GitHub via `gh api`. O `commit_id` é o HEAD SHA do
+            PR:
+
+            ```bash
+            PR=${{ github.event.pull_request.number }}
+            REPO="${GITHUB_REPOSITORY}"   # owner/repo
+            SHA=$(gh pr view "$PR" --json headRefOid -q .headRefOid)
+
+            # Comentário inline com suggestion (fix mecânico)
+            gh api "repos/${REPO}/pulls/${PR}/comments" -X POST \
+              -f commit_id="$SHA" \
+              -f path="<caminho/do/arquivo>" \
+              -F line=<linha> \
+              -f side="RIGHT" \
+              -f body="$(cat <<'EOF'
+            <Descrição curta do problema em pt-BR, citando a regra/CLAUDE.md quando aplicável.>
+
+            ```suggestion
+            <conteúdo exato da(s) linha(s) corrigida(s)>
+            ```
+            EOF
+            )"
+
+            # Comentário inline sem suggestion (decisão de design / risco arquitetural)
+            gh api "repos/${REPO}/pulls/${PR}/comments" -X POST \
+              -f commit_id="$SHA" \
+              -f path="<caminho/do/arquivo>" \
+              -F line=<linha> \
+              -f side="RIGHT" \
+              -f body="<Descrição do risco/decisão a discutir, sem propor código.>"
+            ```
+
+            Regras:
+            - Use `suggestion` **só** quando você consegue produzir as
+              linhas corrigidas exatas que substituem as linhas atuais. O
+              conteúdo do `suggestion` deve ser o trecho final pronto para
+              commit (sem `+`/`-` de diff).
+            - Para apontamentos multi-linha, use `start_line` + `line` no
+              `gh api` e abranja só o intervalo necessário.
+            - Se o apontamento não tem âncora clara em uma linha do diff
+              (ex.: ausência de arquivo, política de PR), inclua-o no
+              **comentário consolidado de fallback** descrito abaixo, não
+              tente forçar inline.
+
+            #### Comentário consolidado (apenas como fallback)
+
+            Quando NÃO houver apontamentos inline a postar (skill não achou
+            nada relevante OU PR foi considerado inelegível), poste UM
+            comentário no PR via
+            `gh pr comment ${{ github.event.pull_request.number }} --body-file <arquivo>`
+            no formato abaixo (pt-BR, sem outros emojis além do de
+            criticidade):
 
             ```markdown
             ### Code Review IA — <EMOJI_CRITICIDADE> <Label>
 
             **Resumo:** <1-2 frases descrevendo o que o PR faz, com base no diff>
 
-            **Apontamentos:**
-            <Lista dos apontamentos relevantes encontrados pela skill, OU "Nenhum apontamento relevante foi encontrado." se vazio, OU "PR considerado inelegível para revisão automática (motivo: <motivo>)." se aplicável>
+            **Apontamentos:** Nenhum apontamento relevante foi encontrado.
+            <OU "PR considerado inelegível para revisão automática (motivo: <motivo>)." se aplicável>
 
             ---
             Revisão automatizada. Classificação heurística — entrada para discussão.
             ```
 
             Diretrizes:
-            - Se a skill postou seu próprio comentário, ainda assim poste o seu nesse formato (são complementares).
-            - Para o link de cada apontamento, use sha completo do commit no formato `https://github.com/<owner>/<repo>/blob/<sha>/<path>#L<line>`.
+            - Se a skill postou seu próprio comentário, ainda assim siga
+              este fluxo (inline por apontamento + label).
             - Não use `run-id`/timestamps — só conteúdo do PR.
