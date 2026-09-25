@@ -4,5 +4,5 @@
 
 - [SafraControl Tasks](https://github.com/orgs/souagrosolucoes/projects/5/views/16)
 
-<img width="2692" height="1620" alt="Engenheria" src="https://github.com/user-attachments/assets/3f34ebad-e96b-4654-91a4-64ae9960cff0" />
+<img width="1600" height="900" alt="tt" src="https://github.com/user-attachments/assets/1cdaeabf-e5c0-44e5-aeda-cbdc588f8b37" />
 
